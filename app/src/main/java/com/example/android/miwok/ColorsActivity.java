@@ -15,6 +15,8 @@
  */
 package com.example.android.miwok;
 
+import android.content.Context;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -30,17 +32,39 @@ public class ColorsActivity extends AppCompatActivity {
      * Handles playback of all sound files
      */
     private MediaPlayer mMediaPlayer;
+    private AudioManager mAudioManager;
     private MediaPlayer.OnCompletionListener mCompletionListener = new MediaPlayer.OnCompletionListener() {
         @Override
         public void onCompletion(MediaPlayer mediaPlayer) {
             releaseMediaPlayer();
         }
     };
+    AudioManager.OnAudioFocusChangeListener mOnAudioFocusChangeListener =
+            new AudioManager.OnAudioFocusChangeListener() {
+                public void onAudioFocusChange(int focusChange) {
+                    if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
+                        //if we permanently lose focus, stop playback and release resources
+                        releaseMediaPlayer();
+                    } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT ||
+                            focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
+                        //temporary loss of focus, pause playback
+                        mMediaPlayer.pause();
+                        //restart the pronunciation of word from the beginning
+                        mMediaPlayer.seekTo(0);
+                    } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
+                        //once we get focus, resume the pronunciation
+                        mMediaPlayer.start();
+                    }
+                }
+            };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.word_list);
+
+        //create and set up the audio manager to request audio focus
+        mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
 
         // Create a list of words
         final ArrayList<Word> words = new ArrayList<Word>();
@@ -78,6 +102,9 @@ public class ColorsActivity extends AppCompatActivity {
                 //release any current media player so a new audio file can be played
                 releaseMediaPlayer();
 
+                //request audio focus
+                int result = mAudioManager.requestAudioFocus(mOnAudioFocusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+
                 // Create and setup the {@link MediaPlayer} for the audio resource associated
                 // with the current word
                 mMediaPlayer = MediaPlayer.create(ColorsActivity.this, word.getAudioResourceId());
@@ -109,6 +136,9 @@ public class ColorsActivity extends AppCompatActivity {
             // setting the media player to null is an easy way to tell that the media player
             // is not configured to play an audio file at the moment.
             mMediaPlayer = null;
+
+            //free up the audio focus
+            mAudioManager.abandonAudioFocus(mOnAudioFocusChangeListener);
         }
     }
 }
