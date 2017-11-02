@@ -94,6 +94,13 @@ public class PhrasesActivity extends AppCompatActivity {
         });
     }
 
+    @Override
+    protected void onStop() {
+        super.onStop();
+        //when the activity is stopped, release resources and immediately stop sound
+        releaseMediaPlayer();
+    }
+
     private void releaseMediaPlayer() {
         // If the media player is not null, then it may be currently playing a sound.
         if (mMediaPlayer != null) {
